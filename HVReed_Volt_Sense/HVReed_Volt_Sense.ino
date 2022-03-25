@@ -3,18 +3,29 @@
 // - Maxtrax
 
 #include <Wire.h>
-#include "Adafruit_MCP23008.h"
-#include "DTIOI2CtoParallelConverter.h"
+#include <Adafruit_MCP23008.h>
+#include <DTIOI2CtoParallelConverter.h>
+#include <ArduinoRS485.h>
+
+#define NOP __asm__("nop\n\t") //"nop" executes in one machine cycle (at 16 MHz) yielding a 62.5 ns delay
 
 const char * app_ver = "v1.0";
 
 const byte LED1_PIN = 17;
 const byte LED2_PIN = 16;
 
+const byte RS485_RE = 0;
+const byte RS485_DE = 0;
+const byte RS485_RX = 13;
+const byte RS485_TX = 14;
+
+const byte IOEXP_RESET_PIN = 1;
 const byte IOEXP_INT1_PIN = 4;
 const byte IOEXP_INT2_PIN = 5;
 const byte IOEXP_INT3_PIN = 6;
 const byte IOEXP_INT4_PIN = 7;
+
+const byte LEVEL_SHIFTER_OE = 3;
 
 const byte TOTAL_IOEXP_PORTS = 8;
 
@@ -67,7 +78,23 @@ port_data_t expander_mapping[TOTAL_IOEXP_PORTS] = { {&ioExp1_port0, 8}, {&ioExp1
                                                     {&ioExp3_port0, 8}, {&ioExp3_port1, 6},
                                                     {&ioExp4_port0, 8}, {&ioExp4_port1, 6} };
 
-void checkExpanderPins(port_data_t *p_expander)
+void resetLevelShifter()
+{
+    digitalWrite(LEVEL_SHIFTER_OE, LOW);
+    NOP; //60ns delay
+    digitalWrite(LEVEL_SHIFTER_OE, HIGH);
+    delayMicroseconds(1); //only need 200ns
+}
+
+void resetIOExpanders()
+{
+    digitalWrite(IOEXP_RESET_PIN, LOW);
+    NOP; //60ns delay
+    digitalWrite(IOEXP_RESET_PIN, HIGH);
+    delayMicroseconds(1); //only need 400ns
+}
+
+void checkIOExpanderPins(port_data_t *p_expander)
 {
     if(NULL != p_expander)
     {
@@ -76,49 +103,49 @@ void checkExpanderPins(port_data_t *p_expander)
         if( (pin_count++ < p_expander->max_pins) && (HIGH == p_expander->p_expander_port->pins.pin_0) )
         {
             snprintf(text, 8, "%02x/%02x/01", board_ID, port_ID);
-            Serial.println(text);
+            RS485.println(text);
         }
         
         if( (pin_count++ < p_expander->max_pins) && (HIGH == p_expander->p_expander_port->pins.pin_1) )
         {
             snprintf(text, 8, "%02x/%02x/02", board_ID, port_ID);
-            Serial.println(text);
+            RS485.println(text);
         }
         
         if( (pin_count++ < p_expander->max_pins) && (HIGH == p_expander->p_expander_port->pins.pin_2) )
         {
             snprintf(text, 8, "%02x/%02x/03", board_ID, port_ID);
-            Serial.println(text);
+            RS485.println(text);
         }
         
         if( (pin_count++ < p_expander->max_pins) && (HIGH == p_expander->p_expander_port->pins.pin_3) )
         {
             snprintf(text, 8, "%02x/%02x/04", board_ID, port_ID);
-            Serial.println(text);
+            RS485.println(text);
         }
         
         if( (pin_count++ < p_expander->max_pins) && (HIGH == p_expander->p_expander_port->pins.pin_4) )
         {
             snprintf(text, 8, "%02x/%02x/05", board_ID, port_ID);
-            Serial.println(text);
+            RS485.println(text);
         }
         
         if( (pin_count++ < p_expander->max_pins) && (HIGH == p_expander->p_expander_port->pins.pin_5) )
         {
             snprintf(text, 8, "%02x/%02x/06", board_ID, port_ID);
-            Serial.println(text);
+            RS485.println(text);
         }
         
         if( (pin_count++ < p_expander->max_pins) && (HIGH == p_expander->p_expander_port->pins.pin_6) )
         {
             snprintf(text, 8, "%02x/%02x/07", board_ID, port_ID);
-            Serial.println(text);
+            RS485.println(text);
         }
         
         if( (pin_count++ < p_expander->max_pins) && (HIGH == p_expander->p_expander_port->pins.pin_7) )
         {
             snprintf(text, 8, "%02x/%02x/08", board_ID, port_ID);
-            Serial.println(text);
+            RS485.println(text);
         }
     }
 }
@@ -159,6 +186,15 @@ void setup()
     Serial.print("HV Reed Voltage Sensor Relay");
     Serial.println(app_ver);
     
+    RS485.setPins(RS485_TX, RS485_DE, RS485_RE);
+    RS485.begin(9600);
+    
+    // enable transmission, can be disabled with: RS485.endTransmission();
+    RS485.beginTransmission();
+    
+    // enable reception, can be disabled with: RS485.noReceive();
+    RS485.receive();
+    
     Wire.begin(); //need to start the Wire for I2C devices to function
     
     ioExp_MCP.begin(0x20);  //MCP23008 (with A2 = 0, A1 = 0 and A0 = 0)
@@ -170,9 +206,15 @@ void setup()
         ioExp_MCP.pullUp(pin, HIGH); 
     }
     
+    pinMode(IOEXP_RESET_PIN, OUTPUT);
+    resetIOExpanders();
+    
+    pinMode(LEVEL_SHIFTER_OE, OUTPUT);
+    resetLevelShifter();
+    
     ioExp1_U2.portMode0(ALLINPUT);
     ioExp1_U2.portMode1(ALLINPUT);
- 
+    
     ioExp2_U3.portMode0(ALLINPUT);
     ioExp2_U3.portMode1(ALLINPUT);
     
@@ -210,7 +252,7 @@ void loop()
             if(check_bit & (1 << port_mask))
             {
                 port_ID = port_mask + 1;
-                checkExpanderPins(&expander_mapping[port_mask]);
+                checkIOExpanderPins(&expander_mapping[port_mask]);
                 check_bit &= ~(1 << port_mask); //clear bit after handle
             }
         }while( (++port_mask < TOTAL_IOEXP_PORTS) && (0 != check_bit) );
