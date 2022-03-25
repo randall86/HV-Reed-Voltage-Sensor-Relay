@@ -257,4 +257,9 @@ void loop()
             }
         }while( (++port_mask < TOTAL_IOEXP_PORTS) && (0 != check_bit) );
     }
+    
+    if (RS485.available())
+    {
+        RS485.read(); //TODO: temporary discard the rx data to prevent echo from overflowing rx buffer
+    }
 }
