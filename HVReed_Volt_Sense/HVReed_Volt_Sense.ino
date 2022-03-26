@@ -1,5 +1,5 @@
 // HV Reed Voltage Sensor Relay System
-// Rev 1.0 (24/03/2022)
+// Rev 1.0 (26/03/2022)
 // - Maxtrax
 
 #include <Wire.h>
@@ -78,12 +78,27 @@ port_data_t expander_mapping[TOTAL_IOEXP_PORTS] = { {&ioExp1_port0, 8}, {&ioExp1
                                                     {&ioExp3_port0, 8}, {&ioExp3_port1, 6},
                                                     {&ioExp4_port0, 8}, {&ioExp4_port1, 6} };
 
+void sendRS485Data(char data[])
+{
+    RS485.beginTransmission();
+    
+    digitalWrite(LED2_PIN, HIGH);
+    RS485.println(data);
+    digitalWrite(LED2_PIN, HIGH);
+    
+    RS485.endTransmission();
+}
+
 void resetLevelShifter()
 {
+    RS485.noReceive();
+    
     digitalWrite(LEVEL_SHIFTER_OE, LOW);
     NOP; //60ns delay
     digitalWrite(LEVEL_SHIFTER_OE, HIGH);
     delayMicroseconds(1); //only need 200ns
+    
+    RS485.receive();
 }
 
 void resetIOExpanders()
@@ -98,54 +113,54 @@ void checkIOExpanderPins(port_data_t *p_expander)
 {
     if(NULL != p_expander)
     {
-        char text[8] = {};
+        char text[9] = {}; // XX/YY/ZZ/n - XX - board ID, YY - expander port ID, ZZ - expander pin (relay)
         byte pin_count = 0;
         if( (pin_count++ < p_expander->max_pins) && (HIGH == p_expander->p_expander_port->pins.pin_0) )
         {
             snprintf(text, 8, "%02x/%02x/01", board_ID, port_ID);
-            RS485.println(text);
+            sendRS485Data(text);
         }
         
         if( (pin_count++ < p_expander->max_pins) && (HIGH == p_expander->p_expander_port->pins.pin_1) )
         {
             snprintf(text, 8, "%02x/%02x/02", board_ID, port_ID);
-            RS485.println(text);
+            sendRS485Data(text);
         }
         
         if( (pin_count++ < p_expander->max_pins) && (HIGH == p_expander->p_expander_port->pins.pin_2) )
         {
             snprintf(text, 8, "%02x/%02x/03", board_ID, port_ID);
-            RS485.println(text);
+            sendRS485Data(text);
         }
         
         if( (pin_count++ < p_expander->max_pins) && (HIGH == p_expander->p_expander_port->pins.pin_3) )
         {
             snprintf(text, 8, "%02x/%02x/04", board_ID, port_ID);
-            RS485.println(text);
+            sendRS485Data(text);
         }
         
         if( (pin_count++ < p_expander->max_pins) && (HIGH == p_expander->p_expander_port->pins.pin_4) )
         {
             snprintf(text, 8, "%02x/%02x/05", board_ID, port_ID);
-            RS485.println(text);
+            sendRS485Data(text);
         }
         
         if( (pin_count++ < p_expander->max_pins) && (HIGH == p_expander->p_expander_port->pins.pin_5) )
         {
             snprintf(text, 8, "%02x/%02x/06", board_ID, port_ID);
-            RS485.println(text);
+            sendRS485Data(text);
         }
         
         if( (pin_count++ < p_expander->max_pins) && (HIGH == p_expander->p_expander_port->pins.pin_6) )
         {
             snprintf(text, 8, "%02x/%02x/07", board_ID, port_ID);
-            RS485.println(text);
+            sendRS485Data(text);
         }
         
         if( (pin_count++ < p_expander->max_pins) && (HIGH == p_expander->p_expander_port->pins.pin_7) )
         {
             snprintf(text, 8, "%02x/%02x/08", board_ID, port_ID);
-            RS485.println(text);
+            sendRS485Data(text);
         }
     }
 }
@@ -183,16 +198,16 @@ void setup()
     Serial.begin(9600);
     //while (!Serial);
     
+    pinMode(LED1_PIN, OUTPUT);
+    pinMode(LED2_PIN, OUTPUT);
+    digitalWrite(LED1_PIN, HIGH);
+    digitalWrite(LED2_PIN, HIGH);
+    
     Serial.print("HV Reed Voltage Sensor Relay");
     Serial.println(app_ver);
     
     RS485.setPins(RS485_TX, RS485_DE, RS485_RE);
     RS485.begin(9600);
-    
-    // enable transmission, can be disabled with: RS485.endTransmission();
-    RS485.beginTransmission();
-    
-    // enable reception, can be disabled with: RS485.noReceive();
     RS485.receive();
     
     Wire.begin(); //need to start the Wire for I2C devices to function
@@ -235,6 +250,9 @@ void setup()
     
     pinMode(IOEXP_INT4_PIN, INPUT_PULLUP);
     attachInterrupt(digitalPinToInterrupt(IOEXP_INT4_PIN), ioExp4InterruptHandler, CHANGE);
+    
+    digitalWrite(LED1_PIN, LOW);
+    digitalWrite(LED2_PIN, LOW);
 }
 
 void loop()
@@ -260,6 +278,8 @@ void loop()
     
     if (RS485.available())
     {
+        digitalWrite(LED1_PIN, HIGH);
         RS485.read(); //TODO: temporary discard the rx data to prevent echo from overflowing rx buffer
+        digitalWrite(LED1_PIN, LOW);
     }
 }
