@@ -84,7 +84,7 @@ void sendRS485Data(char data[])
     
     digitalWrite(LED2_PIN, HIGH);
     RS485.println(data);
-    digitalWrite(LED2_PIN, HIGH);
+    digitalWrite(LED2_PIN, LOW);
     
     RS485.endTransmission();
 }
@@ -279,7 +279,7 @@ void loop()
     if (RS485.available())
     {
         digitalWrite(LED1_PIN, HIGH);
-        RS485.read(); //TODO: temporary discard the rx data to prevent echo from overflowing rx buffer
+        RS485.read(); //TODO: temporary discard the rx data to prevent echo from overflowing serial rx buffer
         digitalWrite(LED1_PIN, LOW);
     }
 }
