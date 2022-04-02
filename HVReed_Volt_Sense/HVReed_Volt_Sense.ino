@@ -221,6 +221,9 @@ void setup()
         ioExp_MCP.pullUp(pin, HIGH); 
     }
     
+    //get the board ID
+    board_ID = ioExp_MCP.readGPIO();
+    
     pinMode(IOEXP_RESET_PIN, OUTPUT);
     resetIOExpanders();
     
@@ -257,9 +260,6 @@ void setup()
 
 void loop()
 {
-    //get the board ID
-    board_ID = ioExp_MCP.readGPIO();
-    
     //interrupt triggered process the read data here
     while(0 != check_bit)
     {
