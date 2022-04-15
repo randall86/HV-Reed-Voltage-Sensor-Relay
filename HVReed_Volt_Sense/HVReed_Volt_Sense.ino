@@ -11,8 +11,7 @@
 
 const char * app_ver = "v1.0";
 
-const byte LED1_PIN = 17;
-const byte LED2_PIN = 16;
+const byte LED_PIN = 16;
 
 const byte RS485_RE = 0;
 const byte RS485_DE = 0;
@@ -28,6 +27,8 @@ const byte IOEXP_INT4_PIN = 7;
 const byte LEVEL_SHIFTER_OE = 3;
 
 const byte TOTAL_IOEXP_PORTS = 8;
+
+const int MAX_BUFFERED_RESULT = 256;
 
 typedef union _port_t
 {
@@ -62,6 +63,8 @@ byte board_ID = 0; //own board ID
 byte port_ID = 0; //port ID
 byte check_bit = 0; //use bits to represent the interrupt triggerd expander
 bool ioExp1_pin_changed = false;
+int result_count = 0;
+char result_text[MAX_BUFFERED_RESULT][9] = {}; // XX/YY/ZZ/n - XX - board ID, YY - expander port ID, ZZ - expander pin (relay)
 
 //DUT not short - input pin values high
 //DUT shorted - input pin values low
@@ -82,9 +85,9 @@ void sendRS485Data(char data[])
 {
     RS485.beginTransmission();
     
-    digitalWrite(LED2_PIN, HIGH);
+    digitalWrite(LED_PIN, HIGH);
     RS485.println(data);
-    digitalWrite(LED2_PIN, LOW);
+    digitalWrite(LED_PIN, LOW);
     
     RS485.endTransmission();
 }
@@ -109,58 +112,57 @@ void resetIOExpanders()
     delayMicroseconds(1); //only need 400ns
 }
 
+int getResultCount()
+{
+    //wraparound handling
+    int curr_count = result_count;
+    result_count = (result_count + 1) & (MAX_BUFFERED_RESULT - 1);
+    return (curr_count);
+}
+
 void checkIOExpanderPins(port_data_t *p_expander)
 {
     if(NULL != p_expander)
     {
-        char text[9] = {}; // XX/YY/ZZ/n - XX - board ID, YY - expander port ID, ZZ - expander pin (relay)
         byte pin_count = 0;
         if( (pin_count++ < p_expander->max_pins) && (HIGH == p_expander->p_expander_port->pins.pin_0) )
         {
-            snprintf(text, 8, "%02x/%02x/01", board_ID, port_ID);
-            sendRS485Data(text);
+            snprintf(result_text[getResultCount()], 8, "%02x/%02x/01", board_ID, port_ID);
         }
         
         if( (pin_count++ < p_expander->max_pins) && (HIGH == p_expander->p_expander_port->pins.pin_1) )
         {
-            snprintf(text, 8, "%02x/%02x/02", board_ID, port_ID);
-            sendRS485Data(text);
+            snprintf(result_text[getResultCount()], 8, "%02x/%02x/02", board_ID, port_ID);
         }
         
         if( (pin_count++ < p_expander->max_pins) && (HIGH == p_expander->p_expander_port->pins.pin_2) )
         {
-            snprintf(text, 8, "%02x/%02x/03", board_ID, port_ID);
-            sendRS485Data(text);
+            snprintf(result_text[getResultCount()], 8, "%02x/%02x/03", board_ID, port_ID);
         }
         
         if( (pin_count++ < p_expander->max_pins) && (HIGH == p_expander->p_expander_port->pins.pin_3) )
         {
-            snprintf(text, 8, "%02x/%02x/04", board_ID, port_ID);
-            sendRS485Data(text);
+            snprintf(result_text[getResultCount()], 8, "%02x/%02x/04", board_ID, port_ID);
         }
         
         if( (pin_count++ < p_expander->max_pins) && (HIGH == p_expander->p_expander_port->pins.pin_4) )
         {
-            snprintf(text, 8, "%02x/%02x/05", board_ID, port_ID);
-            sendRS485Data(text);
+            snprintf(result_text[getResultCount()], 8, "%02x/%02x/05", board_ID, port_ID);
         }
         
         if( (pin_count++ < p_expander->max_pins) && (HIGH == p_expander->p_expander_port->pins.pin_5) )
         {
-            snprintf(text, 8, "%02x/%02x/06", board_ID, port_ID);
-            sendRS485Data(text);
+            snprintf(result_text[getResultCount()], 8, "%02x/%02x/06", board_ID, port_ID);
         }
         
         if( (pin_count++ < p_expander->max_pins) && (HIGH == p_expander->p_expander_port->pins.pin_6) )
         {
-            snprintf(text, 8, "%02x/%02x/07", board_ID, port_ID);
-            sendRS485Data(text);
+            snprintf(result_text[getResultCount()], 8, "%02x/%02x/07", board_ID, port_ID);
         }
         
         if( (pin_count++ < p_expander->max_pins) && (HIGH == p_expander->p_expander_port->pins.pin_7) )
         {
-            snprintf(text, 8, "%02x/%02x/08", board_ID, port_ID);
-            sendRS485Data(text);
+            snprintf(result_text[getResultCount()], 8, "%02x/%02x/08", board_ID, port_ID);
         }
     }
 }
@@ -198,10 +200,8 @@ void setup()
     Serial.begin(9600);
     //while (!Serial);
     
-    pinMode(LED1_PIN, OUTPUT);
-    pinMode(LED2_PIN, OUTPUT);
-    digitalWrite(LED1_PIN, HIGH);
-    digitalWrite(LED2_PIN, HIGH);
+    pinMode(LED_PIN, OUTPUT);
+    digitalWrite(LED_PIN, HIGH);
     
     Serial.print("HV Reed Voltage Sensor Relay");
     Serial.println(app_ver);
@@ -254,8 +254,7 @@ void setup()
     pinMode(IOEXP_INT4_PIN, INPUT_PULLUP);
     attachInterrupt(digitalPinToInterrupt(IOEXP_INT4_PIN), ioExp4InterruptHandler, CHANGE);
     
-    digitalWrite(LED1_PIN, LOW);
-    digitalWrite(LED2_PIN, LOW);
+    digitalWrite(LED_PIN, LOW);
 }
 
 void loop()
@@ -278,8 +277,12 @@ void loop()
     
     if (RS485.available())
     {
-        digitalWrite(LED1_PIN, HIGH);
         RS485.read(); //TODO: temporary discard the rx data to prevent echo from overflowing serial rx buffer
-        digitalWrite(LED1_PIN, LOW);
+        
+        //get request from Master
+        for(int count = 0; count < result_count; count++)
+        {
+            sendRS485Data(result_text[count]);
+        }
     }
 }
