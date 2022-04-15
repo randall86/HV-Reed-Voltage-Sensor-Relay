@@ -284,5 +284,7 @@ void loop()
         {
             sendRS485Data(result_text[count]);
         }
+        
+        result_count = 0; //clear the result count after replying to Master
     }
 }
