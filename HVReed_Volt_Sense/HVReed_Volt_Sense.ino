@@ -275,16 +275,24 @@ void loop()
         }while( (++port_mask < TOTAL_IOEXP_PORTS) && (0 != check_bit) );
     }
     
+    //get request from Master
     if (RS485.available())
     {
         RS485.read(); //TODO: temporary discard the rx data to prevent echo from overflowing serial rx buffer
         
-        //get request from Master
-        for(int count = 0; count < result_count; count++)
+        if (result_count)
         {
-            sendRS485Data(result_text[count]);
+            for(int count = 0; count < result_count; count++)
+            {
+                sendRS485Data(result_text[count]);
+            }
+            result_count = 0; //clear the result count after replying to Master
         }
-        
-        result_count = 0; //clear the result count after replying to Master
+        else
+        {
+            char empty[9] = {};
+            snprintf(empty, 8, "%02x/00/00", board_ID); //reply board ID without any port/pin triggered
+            sendRS485Data(empty);
+        }
     }
 }
