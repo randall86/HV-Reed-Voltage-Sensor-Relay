@@ -1,5 +1,5 @@
 // HV Reed Voltage Sensor Relay System
-// Rev 1.0 (26/03/2022)
+// Rev 1.1 (19/04/2022)
 // - Maxtrax
 
 #include <Wire.h>
@@ -9,7 +9,7 @@
 
 #define NOP __asm__("nop\n\t") //"nop" executes in one machine cycle (at 16 MHz) yielding a 62.5 ns delay
 
-const char * app_ver = "v1.0";
+const char * app_ver = "v1.1";
 
 const byte LED_PIN = 16;
 
@@ -28,7 +28,9 @@ const byte LEVEL_SHIFTER_OE = 3;
 
 const byte TOTAL_IOEXP_PORTS = 8;
 
-const int MAX_BUFFERED_RESULT = 256;
+const int MAX_BUFFERED_CMD = 16;
+
+const byte LF = 0x0A;
 
 typedef union _port_t
 {
@@ -50,6 +52,7 @@ typedef struct _port_data_t
 {
     port_t *p_expander_port;
     byte max_pins;
+    byte pin_offset;
 }port_data_t;
 
 DTIOI2CtoParallelConverter ioExp1_U2(0x74);  //PCA9539 I/O Expander (with A1 = 0 and A0 = 0)
@@ -60,11 +63,10 @@ DTIOI2CtoParallelConverter ioExp4_U5(0x77);  //PCA9539 I/O Expander (with A1 = 1
 Adafruit_MCP23008 ioExp_MCP;
 
 byte board_ID = 0; //own board ID
-byte port_ID = 0; //port ID
 byte check_bit = 0; //use bits to represent the interrupt triggerd expander
-bool ioExp1_pin_changed = false;
-int result_count = 0;
-char result_text[MAX_BUFFERED_RESULT][9] = {}; // XX/YY/ZZ/n - XX - board ID, YY - expander port ID, ZZ - expander pin (relay)
+int cmd_idx = 0;
+char cmd_str[MAX_BUFFERED_CMD] = {};
+String result = "";
 
 //DUT not short - input pin values high
 //DUT shorted - input pin values low
@@ -76,10 +78,10 @@ port_t ioExp3_port0 = {0};
 port_t ioExp3_port1 = {0};
 port_t ioExp4_port0 = {0};
 port_t ioExp4_port1 = {0};
-port_data_t expander_mapping[TOTAL_IOEXP_PORTS] = { {&ioExp1_port0, 8}, {&ioExp1_port1, 6},
-                                                    {&ioExp2_port0, 8}, {&ioExp2_port1, 6},
-                                                    {&ioExp3_port0, 8}, {&ioExp3_port1, 6},
-                                                    {&ioExp4_port0, 8}, {&ioExp4_port1, 6} };
+port_data_t expander_mapping[TOTAL_IOEXP_PORTS] = { {&ioExp1_port0, 8, 0}, {&ioExp1_port1, 6, 8},
+                                                    {&ioExp2_port0, 8, 14}, {&ioExp2_port1, 6, 22},
+                                                    {&ioExp3_port0, 8, 28}, {&ioExp3_port1, 6, 36},
+                                                    {&ioExp4_port0, 8, 42}, {&ioExp4_port1, 6, 50} };
 
 void sendRS485Data(char data[])
 {
@@ -112,14 +114,6 @@ void resetIOExpanders()
     delayMicroseconds(1); //only need 400ns
 }
 
-int getResultCount()
-{
-    //wraparound handling
-    int curr_count = result_count;
-    result_count = (result_count + 1) & (MAX_BUFFERED_RESULT - 1);
-    return (curr_count);
-}
-
 void checkIOExpanderPins(port_data_t *p_expander)
 {
     if(NULL != p_expander)
@@ -127,42 +121,42 @@ void checkIOExpanderPins(port_data_t *p_expander)
         byte pin_count = 0;
         if( (pin_count++ < p_expander->max_pins) && (HIGH == p_expander->p_expander_port->pins.pin_0) )
         {
-            snprintf(result_text[getResultCount()], 8, "%02x/%02x/01", board_ID, port_ID);
+            result += (String(1 + p_expander->pin_offset) + String(","));
         }
         
         if( (pin_count++ < p_expander->max_pins) && (HIGH == p_expander->p_expander_port->pins.pin_1) )
         {
-            snprintf(result_text[getResultCount()], 8, "%02x/%02x/02", board_ID, port_ID);
+            result += (String(2 + p_expander->pin_offset) + String(","));
         }
         
         if( (pin_count++ < p_expander->max_pins) && (HIGH == p_expander->p_expander_port->pins.pin_2) )
         {
-            snprintf(result_text[getResultCount()], 8, "%02x/%02x/03", board_ID, port_ID);
+            result += (String(3 + p_expander->pin_offset) + String(","));
         }
         
         if( (pin_count++ < p_expander->max_pins) && (HIGH == p_expander->p_expander_port->pins.pin_3) )
         {
-            snprintf(result_text[getResultCount()], 8, "%02x/%02x/04", board_ID, port_ID);
+            result += (String(4 + p_expander->pin_offset) + String(","));
         }
         
         if( (pin_count++ < p_expander->max_pins) && (HIGH == p_expander->p_expander_port->pins.pin_4) )
         {
-            snprintf(result_text[getResultCount()], 8, "%02x/%02x/05", board_ID, port_ID);
+            result += (String(5 + p_expander->pin_offset) + String(","));
         }
         
         if( (pin_count++ < p_expander->max_pins) && (HIGH == p_expander->p_expander_port->pins.pin_5) )
         {
-            snprintf(result_text[getResultCount()], 8, "%02x/%02x/06", board_ID, port_ID);
+            result += (String(6 + p_expander->pin_offset) + String(","));
         }
         
         if( (pin_count++ < p_expander->max_pins) && (HIGH == p_expander->p_expander_port->pins.pin_6) )
         {
-            snprintf(result_text[getResultCount()], 8, "%02x/%02x/07", board_ID, port_ID);
+            result += (String(7 + p_expander->pin_offset) + String(","));
         }
         
         if( (pin_count++ < p_expander->max_pins) && (HIGH == p_expander->p_expander_port->pins.pin_7) )
         {
-            snprintf(result_text[getResultCount()], 8, "%02x/%02x/08", board_ID, port_ID);
+            result += (String(8 + p_expander->pin_offset) + String(","));
         }
     }
 }
@@ -268,7 +262,6 @@ void loop()
             //loop for which expander interrupt triggered
             if(check_bit & (1 << port_mask))
             {
-                port_ID = port_mask + 1;
                 checkIOExpanderPins(&expander_mapping[port_mask]);
                 check_bit &= ~(1 << port_mask); //clear bit after handle
             }
@@ -278,21 +271,18 @@ void loop()
     //get request from Master
     if (RS485.available())
     {
-        RS485.read(); //TODO: temporary discard the rx data to prevent echo from overflowing serial rx buffer
-        
-        if (result_count)
+        cmd_str[cmd_idx] = RS485.read();
+        if (cmd_str[cmd_idx] == LF)
         {
-            for(int count = 0; count < result_count; count++)
-            {
-                sendRS485Data(result_text[count]);
-            }
-            result_count = 0; //clear the result count after replying to Master
+            cmd_str[cmd_idx-1] = 0;
+            Serial.println(cmd_str); //the request command from Master
+            cmd_idx = -1;
+            
+            String reply = (String(board_ID) + String(",") + result);
+            reply.setCharAt(reply.length(), 'S'); //use 'S' for END char
+            sendRS485Data(const_cast<char *>(reply.c_str()));
+            result = ""; //clear the result after sending the reply
         }
-        else
-        {
-            char empty[9] = {};
-            snprintf(empty, 8, "%02x/00/00", board_ID); //reply board ID without any port/pin triggered
-            sendRS485Data(empty);
-        }
+        cmd_idx++;
     }
 }
