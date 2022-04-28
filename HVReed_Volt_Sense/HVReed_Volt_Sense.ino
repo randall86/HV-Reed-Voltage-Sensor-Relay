@@ -238,6 +238,8 @@ void setup()
     Serial.begin(9600);
     //while (!Serial);
     
+    randomSeed(analogRead(0));
+    
     pinMode(LED_PIN, OUTPUT);
     digitalWrite(LED_PIN, HIGH);
     
@@ -343,7 +345,8 @@ void loop()
                     }
                     else if (strncmp(cmd_str, DBG_STR, CMD_LEN) == 0)
                     {
-                        //TODO: HW debug handling
+                        String reply = (String(board_ID) + String(DELIM) + String(random(1, 56)) + String(DELIM) + String(END_STR));
+                        sendRS485Data(const_cast<char *>(reply.c_str()));
                     }
                     else //unknown command send NACK
                     {
