@@ -1,5 +1,5 @@
 // HV Reed Voltage Sensor Relay System
-// Rev 1.2.1 (04/05/2022)
+// Rev 1.2.2 (04/05/2022)
 // - Maxtrax
 
 #include <Wire.h>
@@ -10,7 +10,7 @@
 
 #define NOP __asm__("nop\n\t") //"nop" executes in one machine cycle (at 16 MHz) yielding a 62.5 ns delay
 
-const char * app_ver = "v1.2.1";
+const char * app_ver = "v1.2.2";
 
 //Master commands
 const char * ACK_STR = "ACK";
@@ -38,6 +38,7 @@ const byte IOEXP_INT4_PIN = 7;
 const byte LEVEL_SHIFTER_OE = 3;
 
 const int MAX_BUFFERED_CMD = 32;
+const int MAX_BUFFERED_RESULT = 200;
 
 const int DELAY_MS = 100;
 
@@ -92,7 +93,7 @@ int delim_idx = 0;
 int end_idx = 0;
 int cmd_idx = 0;
 char cmd_str[MAX_BUFFERED_CMD] = {};
-String result = "";
+char result_str[MAX_BUFFERED_RESULT] = {};
 
 //DUT not short - input pin values high
 //DUT shorted - input pin values low
@@ -201,42 +202,42 @@ void checkIOExpanderPins(port_data_t *p_expander)
         byte pin_count = 0;
         if( (pin_count++ < p_expander->max_pins) && (HIGH == p_expander->p_expander_port->pins.pin_0) )
         {
-            result += (String(1 + p_expander->pin_offset) + String(DELIM));
+            snprintf(result_str, MAX_BUFFERED_RESULT, "%s,%d", result_str, (1 + p_expander->pin_offset));
         }
         
         if( (pin_count++ < p_expander->max_pins) && (HIGH == p_expander->p_expander_port->pins.pin_1) )
         {
-            result += (String(2 + p_expander->pin_offset) + String(DELIM));
+            snprintf(result_str, MAX_BUFFERED_RESULT, "%s,%d", result_str, (2 + p_expander->pin_offset));
         }
         
         if( (pin_count++ < p_expander->max_pins) && (HIGH == p_expander->p_expander_port->pins.pin_2) )
         {
-            result += (String(3 + p_expander->pin_offset) + String(DELIM));
+            snprintf(result_str, MAX_BUFFERED_RESULT, "%s,%d", result_str, (3 + p_expander->pin_offset));
         }
         
         if( (pin_count++ < p_expander->max_pins) && (HIGH == p_expander->p_expander_port->pins.pin_3) )
         {
-            result += (String(4 + p_expander->pin_offset) + String(DELIM));
+            snprintf(result_str, MAX_BUFFERED_RESULT, "%s,%d", result_str, (4 + p_expander->pin_offset));
         }
         
         if( (pin_count++ < p_expander->max_pins) && (HIGH == p_expander->p_expander_port->pins.pin_4) )
         {
-            result += (String(5 + p_expander->pin_offset) + String(DELIM));
+            snprintf(result_str, MAX_BUFFERED_RESULT, "%s,%d", result_str, (5 + p_expander->pin_offset));
         }
         
         if( (pin_count++ < p_expander->max_pins) && (HIGH == p_expander->p_expander_port->pins.pin_5) )
         {
-            result += (String(6 + p_expander->pin_offset) + String(DELIM));
+            snprintf(result_str, MAX_BUFFERED_RESULT, "%s,%d", result_str, (6 + p_expander->pin_offset));
         }
         
         if( (pin_count++ < p_expander->max_pins) && (HIGH == p_expander->p_expander_port->pins.pin_6) )
         {
-            result += (String(7 + p_expander->pin_offset) + String(DELIM));
+            snprintf(result_str, MAX_BUFFERED_RESULT, "%s,%d", result_str, (7 + p_expander->pin_offset));
         }
         
         if( (pin_count++ < p_expander->max_pins) && (HIGH == p_expander->p_expander_port->pins.pin_7) )
         {
-            result += (String(8 + p_expander->pin_offset) + String(DELIM));
+            snprintf(result_str, MAX_BUFFERED_RESULT, "%s,%d", result_str, (8 + p_expander->pin_offset));
         }
     }
 }
@@ -397,9 +398,10 @@ void loop()
                     }
                     else if (strncmp(cmd_str, QUERY_CH_STR, CMD_LEN) == 0)
                     {
-                        String reply = (String(board_ID) + String(DELIM) + result + String(END_STR));
-                        sendRS485Data(const_cast<char *>(reply.c_str()));
-                        result = ""; //clear the result after sending the reply
+                        char reply_str[MAX_BUFFERED_RESULT + 10] = {};
+                        snprintf(reply_str, sizeof(reply_str), "%d,%s,%s", board_ID, result_str, END_STR);
+                        sendRS485Data(reply_str);
+                        memset(result_str, 0, MAX_BUFFERED_RESULT); //clear the result after sending the reply
                     }
                     else if (strncmp(cmd_str, DBG_STR, CMD_LEN) == 0)
                     {
