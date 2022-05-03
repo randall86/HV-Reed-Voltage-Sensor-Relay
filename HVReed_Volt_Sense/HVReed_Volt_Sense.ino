@@ -1,5 +1,5 @@
 // HV Reed Voltage Sensor Relay System
-// Rev 1.2 (03/05/2022)
+// Rev 1.2.1 (04/05/2022)
 // - Maxtrax
 
 #include <Wire.h>
@@ -10,7 +10,7 @@
 
 #define NOP __asm__("nop\n\t") //"nop" executes in one machine cycle (at 16 MHz) yielding a 62.5 ns delay
 
-const char * app_ver = "v1.2";
+const char * app_ver = "v1.2.1";
 
 //Master commands
 const char * ACK_STR = "ACK";
@@ -407,10 +407,10 @@ void loop()
                         ioExp1_U2.digitalReadPort0(expander_mapping[0].p_expander_port->port);
                         if (HIGH == expander_mapping[0].p_expander_port->pins.pin_0)
                         {
-                            test = String(1);
+                            test = String(1) + String(DELIM);
                         }
                         
-                        String reply = (String(board_ID) + String(DELIM) + test + String(DELIM) + String(END_STR));
+                        String reply = (String(board_ID) + String(DELIM) + test + String(END_STR));
                         //String reply = (String(board_ID) + String(DELIM) + String(random(1, 56)) + String(DELIM) + String(END_STR));
                         sendRS485Data(const_cast<char *>(reply.c_str()));
                     }
