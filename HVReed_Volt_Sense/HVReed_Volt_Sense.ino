@@ -77,10 +77,10 @@ typedef struct _port_data_t
     byte pin_offset;
 }port_data_t;
 
-DTIOI2CtoParallelConverter ioExp1_U2(0x74);  //PCA9539 I/O Expander (with A1 = 0 and A0 = 0)
-DTIOI2CtoParallelConverter ioExp2_U3(0x75);  //PCA9539 I/O Expander (with A1 = 0 and A0 = 1)
-DTIOI2CtoParallelConverter ioExp3_U4(0x76);  //PCA9539 I/O Expander (with A1 = 1 and A0 = 0)
-DTIOI2CtoParallelConverter ioExp4_U5(0x77);  //PCA9539 I/O Expander (with A1 = 1 and A0 = 1)
+DTIOI2CtoParallelConverter ioExp1_U2(0x24);  //PCA9555 I/O Expander (with A1 = 0 and A0 = 0)
+DTIOI2CtoParallelConverter ioExp2_U3(0x25);  //PCA9555 I/O Expander (with A1 = 0 and A0 = 1)
+DTIOI2CtoParallelConverter ioExp3_U4(0x26);  //PCA9555 I/O Expander (with A1 = 1 and A0 = 0)
+DTIOI2CtoParallelConverter ioExp4_U5(0x27);  //PCA9555 I/O Expander (with A1 = 1 and A0 = 1)
 
 Adafruit_MCP23008 ioExp_MCP;
 
