@@ -1,5 +1,5 @@
 // HV Reed Voltage Sensor Relay System
-// Rev 1.1 (24/04/2022)
+// Rev 1.2 (03/05/2022)
 // - Maxtrax
 
 #include <Wire.h>
@@ -10,7 +10,7 @@
 
 #define NOP __asm__("nop\n\t") //"nop" executes in one machine cycle (at 16 MHz) yielding a 62.5 ns delay
 
-const char * app_ver = "v1.1";
+const char * app_ver = "v1.2";
 
 //Master commands
 const char * ACK_STR = "ACK";
@@ -37,11 +37,22 @@ const byte IOEXP_INT4_PIN = 7;
 
 const byte LEVEL_SHIFTER_OE = 3;
 
-const byte TOTAL_IOEXP_PORTS = 8;
-
 const int MAX_BUFFERED_CMD = 32;
 
-const byte LF = 0x0A;
+const int DELAY_MS = 100;
+
+enum _ports
+{
+    PORT1 = 0,
+    PORT2,
+    PORT3,
+    PORT4,
+    PORT5,
+    PORT6,
+    PORT7,
+    PORT8,
+    TOTAL_IOEXP_PORTS
+};
 
 typedef union _port_t
 {
@@ -129,6 +140,60 @@ void resetIOExpanders()
     delayMicroseconds(1); //only need 400ns
 }
 
+void readIOExpanderPins(byte port)
+{
+    switch(port)
+    {
+        case PORT1:
+        {
+            ioExp1_U2.digitalReadPort0(ioExp1_port0.port);
+        }
+        break;
+        
+        case PORT2:
+        {
+            ioExp1_U2.digitalReadPort1(ioExp1_port1.port);
+        }
+        break;
+        
+        case PORT3:
+        {
+            ioExp2_U3.digitalReadPort0(ioExp2_port0.port);
+        }
+        break;
+        
+        case PORT4:
+        {
+            ioExp2_U3.digitalReadPort1(ioExp2_port1.port);
+        }
+        break;
+        
+        case PORT5:
+        {
+            ioExp3_U4.digitalReadPort0(ioExp3_port0.port);
+        }
+        break;
+        
+        case PORT6:
+        {
+            ioExp3_U4.digitalReadPort1(ioExp3_port1.port);
+        }
+        break;
+        
+        case PORT7:
+        {
+            ioExp4_U5.digitalReadPort0(ioExp4_port0.port);
+        }
+        break;
+        
+        case PORT8:
+        {
+            ioExp4_U5.digitalReadPort1(ioExp4_port1.port);
+        }
+        break;
+    }
+}
+
 void checkIOExpanderPins(port_data_t *p_expander)
 {
     if(NULL != p_expander)
@@ -178,29 +243,21 @@ void checkIOExpanderPins(port_data_t *p_expander)
 
 void ioExp1InterruptHandler()
 {
-    ioExp1_U2.digitalReadPort0(ioExp1_port0.port);
-    ioExp1_U2.digitalReadPort1(ioExp1_port1.port);
     check_bit |= 0x03; 
 }
 
 void ioExp2InterruptHandler()
 {
-    ioExp2_U3.digitalReadPort0(ioExp2_port0.port);
-    ioExp2_U3.digitalReadPort1(ioExp2_port1.port);
     check_bit |= 0x0C; 
 }
 
 void ioExp3InterruptHandler()
 {
-    ioExp3_U4.digitalReadPort0(ioExp3_port0.port);
-    ioExp3_U4.digitalReadPort1(ioExp3_port1.port);
     check_bit |= 0x30;
 }
 
 void ioExp4InterruptHandler()
 {
-    ioExp4_U5.digitalReadPort0(ioExp4_port0.port);
-    ioExp4_U5.digitalReadPort1(ioExp4_port1.port);
     check_bit |= 0xC0;
 }
 
@@ -215,6 +272,7 @@ void updateResult()
             //loop for which expander interrupt triggered
             if(check_bit & (1 << port_mask))
             {
+                readIOExpanderPins(port_mask);
                 checkIOExpanderPins(&expander_mapping[port_mask]);
                 check_bit &= ~(1 << port_mask); //clear bit after handle
             }
@@ -367,4 +425,6 @@ void loop()
             cmd_idx = 0;
         }
     }
+    
+    delay(DELAY_MS);
 }
