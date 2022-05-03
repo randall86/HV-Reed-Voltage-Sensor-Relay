@@ -403,7 +403,15 @@ void loop()
                     }
                     else if (strncmp(cmd_str, DBG_STR, CMD_LEN) == 0)
                     {
-                        String reply = (String(board_ID) + String(DELIM) + String(random(1, 56)) + String(DELIM) + String(END_STR));
+                        String test = "";
+                        ioExp1_U2.digitalReadPort0(expander_mapping[0].p_expander_port->port);
+                        if (HIGH == expander_mapping[0].p_expander_port->pins.pin_0)
+                        {
+                            test = String(1);
+                        }
+                        
+                        String reply = (String(board_ID) + String(DELIM) + test + String(DELIM) + String(END_STR));
+                        //String reply = (String(board_ID) + String(DELIM) + String(random(1, 56)) + String(DELIM) + String(END_STR));
                         sendRS485Data(const_cast<char *>(reply.c_str()));
                     }
                     else //unknown command send NACK
