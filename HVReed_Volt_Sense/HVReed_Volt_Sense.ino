@@ -58,7 +58,7 @@ enum _ports
     TOTAL_IOEXP_PORTS
 };
 
-const byte TOTAL_IOEXP_PINS = 8;
+const byte PORT_IOEXP_PINS = 8;
 typedef union _port_t
 {
     byte port;
@@ -80,7 +80,7 @@ typedef struct _port_data_t
     port_t *p_expander_port;
     byte max_pins;
     byte pin_offset;
-    bool is_high[TOTAL_IOEXP_PINS];
+    bool is_high[PORT_IOEXP_PINS];
     String *p_string_result;
 }port_data_t;
 
@@ -329,6 +329,11 @@ void ioExp1InterruptHandler()
     check_bit |= 0x03;
     result_port0 = "";
     result_port1 = "";
+    for(byte pin = 0; pin < PORT_IOEXP_PINS; pin++)
+    {
+        expander_mapping[0].is_high[pin] = false;
+        expander_mapping[1].is_high[pin] = false;
+    }
 }
 
 void ioExp2InterruptHandler()
@@ -336,6 +341,11 @@ void ioExp2InterruptHandler()
     check_bit |= 0x0C;
     result_port2 = "";
     result_port3 = "";
+    for(byte pin = 0; pin < PORT_IOEXP_PINS; pin++)
+    {
+        expander_mapping[2].is_high[pin] = false;
+        expander_mapping[3].is_high[pin] = false;
+    }
 }
 
 void ioExp3InterruptHandler()
@@ -343,6 +353,11 @@ void ioExp3InterruptHandler()
     check_bit |= 0x30;
     result_port4 = "";
     result_port5 = "";
+    for(byte pin = 0; pin < PORT_IOEXP_PINS; pin++)
+    {
+        expander_mapping[4].is_high[pin] = false;
+        expander_mapping[5].is_high[pin] = false;
+    }
 }
 
 void ioExp4InterruptHandler()
@@ -350,6 +365,11 @@ void ioExp4InterruptHandler()
     check_bit |= 0xC0;
     result_port6 = "";
     result_port7 = "";
+    for(byte pin = 0; pin < PORT_IOEXP_PINS; pin++)
+    {
+        expander_mapping[6].is_high[pin] = false;
+        expander_mapping[7].is_high[pin] = false;
+    }
 }
 
 void updateResult()
@@ -389,6 +409,26 @@ void replyCacheResult()
     RS485.setDelays(REPLY_PRE_DELAY_US, REPLY_POST_DELAY_US); //additional delay for long data
     sendRS485Data(const_cast<char *>(reply.c_str()));
     RS485.setDelays(RS485_DEFAULT_PRE_DELAY, RS485_DEFAULT_POST_DELAY);
+}
+
+void clearCacheResults()
+{
+    result_port0 = "";
+    result_port1 = "";
+    result_port2 = "";
+    result_port3 = "";
+    result_port4 = "";
+    result_port5 = "";
+    result_port6 = "";
+    result_port7 = "";
+    
+    for(byte port = 0; port < TOTAL_IOEXP_PORTS; port++)
+    {
+        for(byte pin = 0; pin < PORT_IOEXP_PINS; pin++)
+        {
+            expander_mapping[port].is_high[pin] = false;
+        }
+    }
 }
 
 void resetBuffer()
@@ -517,6 +557,8 @@ void loop()
                     }
                     else if (strncmp(cmd_str, DBG_STR, CMD_LEN) == 0)
                     {
+                        clearCacheResults();
+                        
                         for (byte port = 0; port < TOTAL_IOEXP_PORTS; port++)
                         {
                             readIOExpanderPins(port);
@@ -527,14 +569,7 @@ void loop()
                     }
                     else if (strncmp(cmd_str, CLEAR_CH_STR, CMD_LEN) == 0)
                     {
-                        result_port0 = "";
-                        result_port1 = "";
-                        result_port2 = "";
-                        result_port3 = "";
-                        result_port4 = "";
-                        result_port5 = "";
-                        result_port6 = "";
-                        result_port7 = "";
+                        clearCacheResults();
                         
                         //reply the cleared results
                         replyCacheResult();
