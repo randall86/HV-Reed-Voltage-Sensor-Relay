@@ -1,5 +1,5 @@
 // HV Reed Voltage Sensor Relay System
-// Rev 1.3 (04/05/2022)
+// Rev 2.0 (04/05/2022)
 // - Maxtrax
 
 #include <Wire.h>
@@ -10,13 +10,14 @@
 
 #define NOP __asm__("nop\n\t") //"nop" executes in one machine cycle (at 16 MHz) yielding a 62.5 ns delay
 
-const char * app_ver = "v1.3";
+const char * app_ver = "v2.0";
 
 //Master commands
 const char * ACK_STR = "ACK";
 const char * NACK_STR = "NACK";
 const char * QUERY_BRD_STR = "QBS";
 const char * QUERY_CH_STR = "QCS";
+const char * CLEAR_CH_STR = "CAS";
 const char * END_STR = "END";
 const char * DBG_STR = "HDB";
 const char DELIM = ',';
@@ -80,6 +81,7 @@ typedef struct _port_data_t
     byte max_pins;
     byte pin_offset;
     bool is_high[TOTAL_IOEXP_PINS];
+    String *p_string_result;
 }port_data_t;
 
 DTIOI2CtoParallelConverter ioExp1_U2(0x24);  //PCA9555 I/O Expander (with A1 = 0 and A0 = 0)
@@ -97,7 +99,15 @@ int delim_idx = 0;
 int end_idx = 0;
 int cmd_idx = 0;
 char cmd_str[MAX_BUFFERED_CMD] = {};
-String result = "";
+
+String result_port0 = "";
+String result_port1 = "";
+String result_port2 = "";
+String result_port3 = "";
+String result_port4 = "";
+String result_port5 = "";
+String result_port6 = "";
+String result_port7 = "";
 
 //DUT not short - input pin values high
 //DUT shorted - input pin values low
@@ -109,10 +119,14 @@ port_t ioExp3_port0 = {0};
 port_t ioExp3_port1 = {0};
 port_t ioExp4_port0 = {0};
 port_t ioExp4_port1 = {0};
-port_data_t expander_mapping[TOTAL_IOEXP_PORTS] = { {&ioExp1_port0, 8, 0}, {&ioExp1_port1, 6, 8},
-                                                    {&ioExp2_port0, 8, 14}, {&ioExp2_port1, 6, 22},
-                                                    {&ioExp3_port0, 8, 28}, {&ioExp3_port1, 6, 36},
-                                                    {&ioExp4_port0, 8, 42}, {&ioExp4_port1, 6, 50} };
+port_data_t expander_mapping[TOTAL_IOEXP_PORTS] = { {&ioExp1_port0, 8, 0, {false}, &result_port0}, 
+                                                    {&ioExp1_port1, 6, 8, {false}, &result_port1},
+                                                    {&ioExp2_port0, 8, 14, {false}, &result_port2}, 
+                                                    {&ioExp2_port1, 6, 22, {false}, &result_port3},
+                                                    {&ioExp3_port0, 8, 28, {false}, &result_port4}, 
+                                                    {&ioExp3_port1, 6, 36, {false}, &result_port5},
+                                                    {&ioExp4_port0, 8, 42, {false}, &result_port6}, 
+                                                    {&ioExp4_port1, 6, 50, {false}, &result_port7} };
 
 void sendRS485Data(char data[])
 {
@@ -199,7 +213,7 @@ void readIOExpanderPins(byte port)
     }
 }
 
-void checkIOExpanderPins(port_data_t *p_expander)
+void updateIOExpanderResult(port_data_t *p_expander)
 {
     if(NULL != p_expander)
     {
@@ -208,7 +222,7 @@ void checkIOExpanderPins(port_data_t *p_expander)
         {
             if( (HIGH == p_expander->p_expander_port->pins.pin_0) && (!p_expander->is_high[0]) )
             {
-                result += (String(1 + p_expander->pin_offset) + String(DELIM));
+                *(p_expander->p_string_result) += (String(1 + p_expander->pin_offset) + String(DELIM));
                 p_expander->is_high[0] = true;
             }
             else if(LOW == p_expander->p_expander_port->pins.pin_0)
@@ -221,7 +235,7 @@ void checkIOExpanderPins(port_data_t *p_expander)
         {
             if( (HIGH == p_expander->p_expander_port->pins.pin_1) && (!p_expander->is_high[1]) )
             {
-                result += (String(2 + p_expander->pin_offset) + String(DELIM));
+                *(p_expander->p_string_result) += (String(2 + p_expander->pin_offset) + String(DELIM));
                 p_expander->is_high[1] = true;
             }
             else if(LOW == p_expander->p_expander_port->pins.pin_1)
@@ -234,7 +248,7 @@ void checkIOExpanderPins(port_data_t *p_expander)
         {
             if( (HIGH == p_expander->p_expander_port->pins.pin_2) && (!p_expander->is_high[2]) )
             {
-                result += (String(3 + p_expander->pin_offset) + String(DELIM));
+                *(p_expander->p_string_result) += (String(3 + p_expander->pin_offset) + String(DELIM));
                 p_expander->is_high[2] = true;
             }
             else if(LOW == p_expander->p_expander_port->pins.pin_2)
@@ -247,7 +261,7 @@ void checkIOExpanderPins(port_data_t *p_expander)
         {
             if( (HIGH == p_expander->p_expander_port->pins.pin_3) && (!p_expander->is_high[3]) )
             {
-                result += (String(4 + p_expander->pin_offset) + String(DELIM));
+                *(p_expander->p_string_result) += (String(4 + p_expander->pin_offset) + String(DELIM));
                 p_expander->is_high[3] = true;
             }
             else if(LOW == p_expander->p_expander_port->pins.pin_3)
@@ -260,7 +274,7 @@ void checkIOExpanderPins(port_data_t *p_expander)
         {
             if( (HIGH == p_expander->p_expander_port->pins.pin_4) && (!p_expander->is_high[4]) )
             {
-                result += (String(5 + p_expander->pin_offset) + String(DELIM));
+                *(p_expander->p_string_result) += (String(5 + p_expander->pin_offset) + String(DELIM));
                 p_expander->is_high[4] = true;
             }
             else if(LOW == p_expander->p_expander_port->pins.pin_4)
@@ -273,7 +287,7 @@ void checkIOExpanderPins(port_data_t *p_expander)
         {
             if( (HIGH == p_expander->p_expander_port->pins.pin_5) && (!p_expander->is_high[5]) )
             {
-                result += (String(6 + p_expander->pin_offset) + String(DELIM));
+                *(p_expander->p_string_result) += (String(6 + p_expander->pin_offset) + String(DELIM));
                 p_expander->is_high[5] = true;
             }
             else if(LOW == p_expander->p_expander_port->pins.pin_5)
@@ -286,7 +300,7 @@ void checkIOExpanderPins(port_data_t *p_expander)
         {
             if( (HIGH == p_expander->p_expander_port->pins.pin_6) && (!p_expander->is_high[6]) )
             {
-                result += (String(7 + p_expander->pin_offset) + String(DELIM));
+                *(p_expander->p_string_result) += (String(7 + p_expander->pin_offset) + String(DELIM));
                 p_expander->is_high[6] = true;
             }
             else if(LOW == p_expander->p_expander_port->pins.pin_6)
@@ -299,7 +313,7 @@ void checkIOExpanderPins(port_data_t *p_expander)
         {
             if( (HIGH == p_expander->p_expander_port->pins.pin_7) && (!p_expander->is_high[7]) )
             {
-                result += (String(8 + p_expander->pin_offset) + String(DELIM));
+                *(p_expander->p_string_result) += (String(8 + p_expander->pin_offset) + String(DELIM));
                 p_expander->is_high[7] = true;
             }
             else if(LOW == p_expander->p_expander_port->pins.pin_7)
@@ -312,22 +326,30 @@ void checkIOExpanderPins(port_data_t *p_expander)
 
 void ioExp1InterruptHandler()
 {
-    check_bit |= 0x03; 
+    check_bit |= 0x03;
+    result_port0 = "";
+    result_port1 = "";
 }
 
 void ioExp2InterruptHandler()
 {
-    check_bit |= 0x0C; 
+    check_bit |= 0x0C;
+    result_port2 = "";
+    result_port3 = "";
 }
 
 void ioExp3InterruptHandler()
 {
     check_bit |= 0x30;
+    result_port4 = "";
+    result_port5 = "";
 }
 
 void ioExp4InterruptHandler()
 {
     check_bit |= 0xC0;
+    result_port6 = "";
+    result_port7 = "";
 }
 
 void updateResult()
@@ -342,13 +364,31 @@ void updateResult()
             if(check_bit & (1 << port_mask))
             {
                 readIOExpanderPins(port_mask);
-                checkIOExpanderPins(&expander_mapping[port_mask]);
+                updateIOExpanderResult(&expander_mapping[port_mask]);
                 check_bit &= ~(1 << port_mask); //clear bit after handle
             }
         }while( (++port_mask < TOTAL_IOEXP_PORTS) && (0 != check_bit) );
     }
     
     yield(); //yield to pass control to other tasks
+}
+
+void replyCacheResult()
+{
+    String reply = (String(board_ID) + String(DELIM) + 
+                    result_port0 +
+                    result_port1 +
+                    result_port2 +
+                    result_port3 +
+                    result_port4 +
+                    result_port5 +
+                    result_port6 +
+                    result_port7 +
+                    String(END_STR));
+                        
+    RS485.setDelays(REPLY_PRE_DELAY_US, REPLY_POST_DELAY_US); //additional delay for long data
+    sendRS485Data(const_cast<char *>(reply.c_str()));
+    RS485.setDelays(RS485_DEFAULT_PRE_DELAY, RS485_DEFAULT_POST_DELAY);
 }
 
 void resetBuffer()
@@ -425,7 +465,7 @@ void setup()
     for (byte port = 0; port < TOTAL_IOEXP_PORTS; port++)
     {
         readIOExpanderPins(port);
-        checkIOExpanderPins(&expander_mapping[port]);
+        updateIOExpanderResult(&expander_mapping[port]);
     }
     
     digitalWrite(LED_PIN, LOW);
@@ -473,26 +513,31 @@ void loop()
                     }
                     else if (strncmp(cmd_str, QUERY_CH_STR, CMD_LEN) == 0)
                     {
-                        String reply = (String(board_ID) + String(DELIM) + result + String(END_STR));
-                        
-                        RS485.setDelays(REPLY_PRE_DELAY_US, REPLY_POST_DELAY_US); //additional delay for long data
-                        sendRS485Data(const_cast<char *>(reply.c_str()));
-                        RS485.setDelays(RS485_DEFAULT_PRE_DELAY, RS485_DEFAULT_POST_DELAY);
-                        
-                        result = ""; //clear the result after sending the reply
+                        replyCacheResult();
                     }
                     else if (strncmp(cmd_str, DBG_STR, CMD_LEN) == 0)
                     {
-                        String test = "";
-                        ioExp1_U2.digitalReadPort0(expander_mapping[0].p_expander_port->port);
-                        if (HIGH == expander_mapping[0].p_expander_port->pins.pin_0)
+                        for (byte port = 0; port < TOTAL_IOEXP_PORTS; port++)
                         {
-                            test = String(1) + String(DELIM);
+                            readIOExpanderPins(port);
+                            updateIOExpanderResult(&expander_mapping[port]);
                         }
                         
-                        String reply = (String(board_ID) + String(DELIM) + test + String(END_STR));
-                        //String reply = (String(board_ID) + String(DELIM) + String(random(1, 56)) + String(DELIM) + String(END_STR));
-                        sendRS485Data(const_cast<char *>(reply.c_str()));
+                        replyCacheResult();
+                    }
+                    else if (strncmp(cmd_str, CLEAR_CH_STR, CMD_LEN) == 0)
+                    {
+                        result_port0 = "";
+                        result_port1 = "";
+                        result_port2 = "";
+                        result_port3 = "";
+                        result_port4 = "";
+                        result_port5 = "";
+                        result_port6 = "";
+                        result_port7 = "";
+                        
+                        //reply the cleared results
+                        replyCacheResult();
                     }
                     else //unknown command send NACK
                     {
