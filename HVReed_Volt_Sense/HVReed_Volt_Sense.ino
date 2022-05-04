@@ -1,5 +1,5 @@
 // HV Reed Voltage Sensor Relay System
-// Rev 1.2.2 (04/05/2022)
+// Rev 1.3 (04/05/2022)
 // - Maxtrax
 
 #include <Wire.h>
@@ -10,7 +10,7 @@
 
 #define NOP __asm__("nop\n\t") //"nop" executes in one machine cycle (at 16 MHz) yielding a 62.5 ns delay
 
-const char * app_ver = "v1.2.2";
+const char * app_ver = "v1.3";
 
 //Master commands
 const char * ACK_STR = "ACK";
@@ -41,8 +41,8 @@ const int MAX_BUFFERED_CMD = 32;
 
 const int DELAY_MS = 100;
 
-const int REPLY_PRE_DELAY_US = 5000;
-const int REPLY_POST_DELAY_US = 5000;
+const int REPLY_PRE_DELAY_US = 500;
+const int REPLY_POST_DELAY_US = 500;
 
 enum _ports
 {
@@ -57,6 +57,7 @@ enum _ports
     TOTAL_IOEXP_PORTS
 };
 
+const byte TOTAL_IOEXP_PINS = 8;
 typedef union _port_t
 {
     byte port;
@@ -78,6 +79,7 @@ typedef struct _port_data_t
     port_t *p_expander_port;
     byte max_pins;
     byte pin_offset;
+    bool is_high[TOTAL_IOEXP_PINS];
 }port_data_t;
 
 DTIOI2CtoParallelConverter ioExp1_U2(0x24);  //PCA9555 I/O Expander (with A1 = 0 and A0 = 0)
@@ -117,7 +119,7 @@ void sendRS485Data(char data[])
     RS485.beginTransmission();
     
     digitalWrite(LED_PIN, HIGH);
-    RS485.println(data);
+    RS485.print(data);
     digitalWrite(LED_PIN, LOW);
     
     RS485.endTransmission();
@@ -202,44 +204,108 @@ void checkIOExpanderPins(port_data_t *p_expander)
     if(NULL != p_expander)
     {
         byte pin_count = 0;
-        if( (pin_count++ < p_expander->max_pins) && (HIGH == p_expander->p_expander_port->pins.pin_0) )
+        if(pin_count++ < p_expander->max_pins)
         {
-            result += (String(1 + p_expander->pin_offset) + String(DELIM));
+            if( (HIGH == p_expander->p_expander_port->pins.pin_0) && (!p_expander->is_high[0]) )
+            {
+                result += (String(1 + p_expander->pin_offset) + String(DELIM));
+                p_expander->is_high[0] = true;
+            }
+            else if(LOW == p_expander->p_expander_port->pins.pin_0)
+            {
+                p_expander->is_high[0] = false;
+            }
         }
         
-        if( (pin_count++ < p_expander->max_pins) && (HIGH == p_expander->p_expander_port->pins.pin_1) )
+        if(pin_count++ < p_expander->max_pins)
         {
-            result += (String(2 + p_expander->pin_offset) + String(DELIM));
+            if( (HIGH == p_expander->p_expander_port->pins.pin_1) && (!p_expander->is_high[1]) )
+            {
+                result += (String(2 + p_expander->pin_offset) + String(DELIM));
+                p_expander->is_high[1] = true;
+            }
+            else if(LOW == p_expander->p_expander_port->pins.pin_1)
+            {
+                p_expander->is_high[1] = false;
+            }
         }
         
-        if( (pin_count++ < p_expander->max_pins) && (HIGH == p_expander->p_expander_port->pins.pin_2) )
+        if(pin_count++ < p_expander->max_pins)
         {
-            result += (String(3 + p_expander->pin_offset) + String(DELIM));
+            if( (HIGH == p_expander->p_expander_port->pins.pin_2) && (!p_expander->is_high[2]) )
+            {
+                result += (String(3 + p_expander->pin_offset) + String(DELIM));
+                p_expander->is_high[2] = true;
+            }
+            else if(LOW == p_expander->p_expander_port->pins.pin_2)
+            {
+                p_expander->is_high[2] = false;
+            }
         }
         
-        if( (pin_count++ < p_expander->max_pins) && (HIGH == p_expander->p_expander_port->pins.pin_3) )
+        if(pin_count++ < p_expander->max_pins)
         {
-            result += (String(4 + p_expander->pin_offset) + String(DELIM));
+            if( (HIGH == p_expander->p_expander_port->pins.pin_3) && (!p_expander->is_high[3]) )
+            {
+                result += (String(4 + p_expander->pin_offset) + String(DELIM));
+                p_expander->is_high[3] = true;
+            }
+            else if(LOW == p_expander->p_expander_port->pins.pin_3)
+            {
+                p_expander->is_high[3] = false;
+            }
         }
         
-        if( (pin_count++ < p_expander->max_pins) && (HIGH == p_expander->p_expander_port->pins.pin_4) )
+        if(pin_count++ < p_expander->max_pins)
         {
-            result += (String(5 + p_expander->pin_offset) + String(DELIM));
+            if( (HIGH == p_expander->p_expander_port->pins.pin_4) && (!p_expander->is_high[4]) )
+            {
+                result += (String(5 + p_expander->pin_offset) + String(DELIM));
+                p_expander->is_high[4] = true;
+            }
+            else if(LOW == p_expander->p_expander_port->pins.pin_4)
+            {
+                p_expander->is_high[4] = false;
+            }
         }
         
-        if( (pin_count++ < p_expander->max_pins) && (HIGH == p_expander->p_expander_port->pins.pin_5) )
+        if(pin_count++ < p_expander->max_pins)
         {
-            result += (String(6 + p_expander->pin_offset) + String(DELIM));
+            if( (HIGH == p_expander->p_expander_port->pins.pin_5) && (!p_expander->is_high[5]) )
+            {
+                result += (String(6 + p_expander->pin_offset) + String(DELIM));
+                p_expander->is_high[5] = true;
+            }
+            else if(LOW == p_expander->p_expander_port->pins.pin_5)
+            {
+                p_expander->is_high[5] = false;
+            }
         }
         
-        if( (pin_count++ < p_expander->max_pins) && (HIGH == p_expander->p_expander_port->pins.pin_6) )
+        if(pin_count++ < p_expander->max_pins)
         {
-            result += (String(7 + p_expander->pin_offset) + String(DELIM));
+            if( (HIGH == p_expander->p_expander_port->pins.pin_6) && (!p_expander->is_high[6]) )
+            {
+                result += (String(7 + p_expander->pin_offset) + String(DELIM));
+                p_expander->is_high[6] = true;
+            }
+            else if(LOW == p_expander->p_expander_port->pins.pin_6)
+            {
+                p_expander->is_high[6] = false;
+            }
         }
         
-        if( (pin_count++ < p_expander->max_pins) && (HIGH == p_expander->p_expander_port->pins.pin_7) )
+        if(pin_count++ < p_expander->max_pins)
         {
-            result += (String(8 + p_expander->pin_offset) + String(DELIM));
+            if( (HIGH == p_expander->p_expander_port->pins.pin_7) && (!p_expander->is_high[7]) )
+            {
+                result += (String(8 + p_expander->pin_offset) + String(DELIM));
+                p_expander->is_high[7] = true;
+            }
+            else if(LOW == p_expander->p_expander_port->pins.pin_7)
+            {
+                p_expander->is_high[7] = false;
+            }
         }
     }
 }
@@ -355,6 +421,13 @@ void setup()
     pinMode(IOEXP_INT4_PIN, INPUT_PULLUP);
     attachInterrupt(digitalPinToInterrupt(IOEXP_INT4_PIN), ioExp4InterruptHandler, CHANGE);
     
+    //read all IO pins once during power up
+    for (byte port = 0; port < TOTAL_IOEXP_PORTS; port++)
+    {
+        readIOExpanderPins(port);
+        checkIOExpanderPins(&expander_mapping[port]);
+    }
+    
     digitalWrite(LED_PIN, LOW);
     
     Scheduler.startLoop(updateResult); //update result from interrupt
@@ -402,7 +475,7 @@ void loop()
                     {
                         String reply = (String(board_ID) + String(DELIM) + result + String(END_STR));
                         
-                        RS485.setDelays(REPLY_PRE_DELAY_US, REPLY_POST_DELAY_US);
+                        RS485.setDelays(REPLY_PRE_DELAY_US, REPLY_POST_DELAY_US); //additional delay for long data
                         sendRS485Data(const_cast<char *>(reply.c_str()));
                         RS485.setDelays(RS485_DEFAULT_PRE_DELAY, RS485_DEFAULT_POST_DELAY);
                         
